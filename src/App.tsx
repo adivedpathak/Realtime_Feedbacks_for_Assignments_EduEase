@@ -10,8 +10,8 @@ import Classroom from '@/pages/Classroom';
 import Assignment from '@/pages/Assignment';
 import JoinClassroom from '@/pages/JoinClassroom';
 import MCQGenerator from '@/pages/MCQGenerator';
+import CreateClassroom from './pages/CreateClassroom';
 
-// Create a client
 const queryClient = new QueryClient();
 
 function App() {
@@ -28,6 +28,7 @@ function App() {
             <Route path="/assignment/:id" element={<Assignment />} />
             <Route path="/join-classroom" element={<JoinClassroom />} />
             <Route path="/mcq-generator" element={<MCQGenerator />} />
+            <Route path="/create-classroom" element={<CreateClassroom />} />
           </Routes>
         </Router>
         <Toaster />

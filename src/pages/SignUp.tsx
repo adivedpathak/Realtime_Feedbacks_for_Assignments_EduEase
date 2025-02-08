@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Ensure RadioGroup and RadioGroupItem are correct
 import { GraduationCap, User, Mail, Lock, ChevronLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
@@ -14,32 +14,41 @@ export default function SignUp() {
     name: '',
     email: '',
     password: '',
-    // role: 'student',
+    role: 'student', // Default role is 'student'
   });
-  const {toast} = useToast();
-  const handleSubmit = async(e: React.FormEvent) => {
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try{
+    console.log('Form Data on Submit:', formData); // Debugging form data before submission
+    try {
       const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/users/`, {
         username: formData.name,
         email: formData.email,
         password: formData.password,
+        role: formData.role,
       });
       console.log(response);
       toast({
         title: 'Account Created Successfully!',
       });
       setFormData({
-        name:"",
-        email:"",
-        password:""
-      })
-    }catch(error){
+        name: '',
+        email: '',
+        password: '',
+        role: 'student', 
+      });
+    } catch (error) {
       toast({
-        variant:'destructive',
-        title:'Error Signing Up. Please try again!'
-      })
+        variant: 'destructive',
+        title: 'Error Signing Up. Please try again!',
+      });
     }
+  };
+
+  const handleRoleChange = (value: string) => {
+    console.log('Selected Role:', value); // Debugging: Log selected role
+    setFormData({ ...formData, role: value });
   };
 
   return (
@@ -50,8 +59,7 @@ export default function SignUp() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md relative"
       >
-          {/* Back Button */}
-          <Link to="/" className="absolute top-8 left-4 text-purple-600 hover:text-purple-600 transition duration-300">
+        <Link to="/" className="absolute top-8 left-4 text-purple-600 hover:text-purple-600 transition duration-300">
           <ChevronLeft className="h-8 w-8" />
         </Link>
 
@@ -118,25 +126,23 @@ export default function SignUp() {
               </div>
             </div>
 
-            {/* <div className="space-y-2">
+            <div className="space-y-2">
               <Label>I am a</Label>
               <RadioGroup
                 value={formData.role}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, role: value })
-                }
+                onValueChange={handleRoleChange} // Update role on change
                 className="flex space-x-4"
               >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="student" id="student" />
+                  <RadioGroupItem value="STUDENT" id="student" />
                   <Label htmlFor="student">Student</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="teacher" id="teacher" />
+                  <RadioGroupItem value="TEACHER" id="teacher" />
                   <Label htmlFor="teacher">Teacher</Label>
                 </div>
               </RadioGroup>
-            </div> */}
+            </div>
 
             <Button
               type="submit"

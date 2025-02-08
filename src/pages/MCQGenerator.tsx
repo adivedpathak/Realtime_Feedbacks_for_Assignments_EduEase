@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain,
   Loader2,
-  Save,
   RefreshCw,
   Download,
   Pencil,
@@ -71,9 +70,10 @@ const ScoreModal = ({ isOpen, onClose, score, total, wrongAnswers }: ScoreModalP
         </div>
 
         {wrongAnswers.length > 0 && (
+          
           <div className="mt-6">
             <h4 className="font-semibold mb-3">Review Incorrect Answers:</h4>
-            <div className="space-y-4 max-h-60 overflow-y-auto">
+            <div className="space-y-4 max-h-60 overflow-y-auto hidden-scrollbar">
               {wrongAnswers.map((wrong, index) => (
                 <div key={index} className="bg-red-50 p-4 rounded-lg">
                   <p className="font-medium text-gray-800 mb-2">{wrong.question}</p>
@@ -100,7 +100,7 @@ export default function MCQGenerator() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<MCQ | null>(null);
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
-
+  
   const handleGenerate = async () => {
     setIsGenerating(true);
     setShowResults(false);
@@ -108,7 +108,7 @@ export default function MCQGenerator() {
 
     try {
       const response = await axios.post('https://genmodel.onrender.com/generate', {
-        prompt: description,
+        prompt: description + `Give me ${numQuestions} only`,
       });
 
       const mcqs = response.data.map((item: any, index: number) => ({
@@ -117,7 +117,6 @@ export default function MCQGenerator() {
         correctAnswer: item.Options.indexOf(item.Answer),
         explanation: '',
       }));
-
       setGeneratedMCQs(mcqs);
     } catch (error) {
       console.error('Error generating MCQs:', error);
@@ -134,9 +133,21 @@ export default function MCQGenerator() {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     setShowResults(true);
     setIsModalOpen(true);
+    console.log(generatedMCQs)
+    console.log(wrongAnswers)
+    try {
+      const response = await axios.post('https://eduease-feedbacks.onrender.com/evaluate_quiz', {
+        topic: description,
+        questions: generatedMCQs,
+        students_answers: wrongAnswers
+      });
+      console.log(response)
+    }catch(err){
+        console.log(err);
+      }
   };
 
   const calculateScore = () => {
@@ -235,14 +246,14 @@ export default function MCQGenerator() {
               <div className="space-y-6">
                 <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-  Content Description
-</label>
-<textarea
-  placeholder="Enter the text content or topic description..."
-  className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white hidden-scrollbar"
-  value={description}
-  onChange={(e) => setDescription(e.target.value)}
-/>
+                  Content Description
+                </label>
+                <textarea
+                  placeholder="Enter the text content or topic description..."
+                  className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white hidden-scrollbar"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
 
                 </div>
 
@@ -416,6 +427,7 @@ export default function MCQGenerator() {
                               Your Score: {calculateScore()} out of {generatedMCQs.length} ({Math.round((calculateScore() / generatedMCQs.length) * 100)}%)
                             </p>
                           </motion.div>
+                          
                         )}
                       </div>
                     </div>
