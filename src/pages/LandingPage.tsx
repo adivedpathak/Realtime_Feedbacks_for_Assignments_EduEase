@@ -79,7 +79,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50">
        <LandingNav/>
-      {/* Hero Section */}
+      {/* Hero Section */}  
       <motion.section 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

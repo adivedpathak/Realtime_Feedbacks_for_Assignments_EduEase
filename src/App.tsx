@@ -11,11 +11,13 @@ import Assignment from '@/pages/Assignment';
 import JoinClassroom from '@/pages/JoinClassroom';
 import MCQGenerator from '@/pages/MCQGenerator';
 import CreateClassroom from './pages/CreateClassroom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const queryClient = new QueryClient();
 
 function App() {
   return (
+    <GoogleOAuthProvider clientId="707090231940-d10jbf8rjelqlm0c2hunbltbjm5hp2p4.apps.googleusercontent.com">
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <Router>
@@ -34,6 +36,7 @@ function App() {
         <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
+    </GoogleOAuthProvider>
   );
 }
 

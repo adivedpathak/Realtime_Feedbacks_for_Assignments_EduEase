@@ -10,9 +10,13 @@ import {
   CheckCircle2,
   XCircle,
   Check,
+  Youtube,
+  AlertCircle,
+  BookOpen,
 } from 'lucide-react';
 import axios from 'axios';
 import { Navbar } from '@/components/layout/Navbar';
+import ReactMarkdown from 'react-markdown';
 
 interface MCQ {
   question: string;
@@ -21,15 +25,24 @@ interface MCQ {
   explanation: string;
 }
 
+interface Analysis {
+  question: string;
+  analysis: string;
+  youtube_video_url: string;
+}
+
 interface ScoreModalProps {
   isOpen: boolean;
   onClose: () => void;
   score: number;
   total: number;
   wrongAnswers: { question: string; userAnswer: string; correctAnswer: string }[];
+  onFeedback: () => void;
+  analysis: Analysis[];
+  showAnalysis: boolean;
 }
 
-const ScoreModal = ({ isOpen, onClose, score, total, wrongAnswers }: ScoreModalProps) => {
+const ScoreModal = ({ isOpen, onClose, score, total, wrongAnswers, onFeedback, analysis, showAnalysis }: ScoreModalProps) => {
   if (!isOpen) return null;
 
   return (
@@ -37,48 +50,53 @@ const ScoreModal = ({ isOpen, onClose, score, total, wrongAnswers }: ScoreModalP
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 relative"
+        className="bg-white rounded-2xl p-8 max-w-3xl w-full mx-4 relative my-8 shadow-xl"
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+          className="absolute right-6 top-6 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <X className="h-5 w-5" />
+          <X className="h-6 w-6" />
         </button>
 
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-4">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-6">
             {score === total ? (
-              <CheckCircle2 className="h-8 w-8 text-purple-600" />
+              <CheckCircle2 className="h-10 w-10 text-purple-600" />
             ) : (
-              <Brain className="h-8 w-8 text-purple-600" />
+              <Brain className="h-10 w-10 text-purple-600" />
             )}
           </div>
-          <h3 className="text-2xl font-bold mb-2">Your Score</h3>
-          <p className="text-4xl font-bold text-purple-600">
+          <h3 className="text-3xl font-bold mb-3">Your Score</h3>
+          <p className="text-5xl font-bold text-purple-600 mb-2">
             {score} / {total}
           </p>
-          <p className="text-gray-600 mt-2">
+          <p className="text-lg text-gray-600">
             {Math.round((score / total) * 100)}% Correct
           </p>
         </div>
 
         {wrongAnswers.length > 0 && (
-          
-          <div className="mt-6">
-            <h4 className="font-semibold mb-3">Review Incorrect Answers:</h4>
-            <div className="space-y-4 max-h-60 overflow-y-auto hidden-scrollbar">
+          <div className="mt-8">
+            <h4 className="text-xl font-semibold mb-4">Review Incorrect Answers:</h4>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4 hidden-scrollbar">
               {wrongAnswers.map((wrong, index) => (
-                <div key={index} className="bg-red-50 p-4 rounded-lg">
-                  <p className="font-medium text-gray-800 mb-2">{wrong.question}</p>
-                  <p className="text-red-600">Your answer: {wrong.userAnswer}</p>
-                  <p className="text-green-600">Correct answer: {wrong.correctAnswer}</p>
+                <div key={index} className="bg-red-50 p-6 rounded-xl border border-red-100">
+                  <p className="font-medium text-gray-800 mb-3">{wrong.question}</p>
+                  <p className="text-red-600 mb-2 flex items-center">
+                    <XCircle className="h-5 w-5 mr-2" />
+                    Your answer: {wrong.userAnswer}
+                  </p>
+                  <p className="text-green-600 flex items-center">
+                    <CheckCircle2 className="h-5 w-5 mr-2" />
+                    Correct answer: {wrong.correctAnswer}
+                  </p>
                 </div>
               ))}
             </div>
@@ -100,11 +118,16 @@ export default function MCQGenerator() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<MCQ | null>(null);
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
+  const [analysis, setAnalysis] = useState<Analysis[]>([]);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   
   const handleGenerate = async () => {
     setIsGenerating(true);
     setShowResults(false);
     setUserAnswers({});
+    setAnalysis([]);
+    setShowAnalysis(false);
 
     try {
       const response = await axios.post('https://genmodel.onrender.com/generate', {
@@ -127,27 +150,35 @@ export default function MCQGenerator() {
   };
 
   const handleAnswerSelect = (questionIndex: number, answerIndex: number) => {
+    if (showResults) return; // Prevent changing answers after submission
     setUserAnswers(prev => ({
       ...prev,
       [questionIndex]: answerIndex
     }));
   };
 
-  const handleSubmit = async() => {
+  const handleSubmit = () => {
     setShowResults(true);
-    setIsModalOpen(true);
-    console.log(generatedMCQs)
-    console.log(wrongAnswers)
+    handleFeedback();
+  };
+
+  const handleFeedback = async () => {
+    setIsLoadingAnalysis(true);
     try {
-      const response = await axios.post('https://eduease-feedbacks.onrender.com/evaluate_quiz', {
-        topic: description,
-        questions: generatedMCQs,
-        students_answers: wrongAnswers
-      });
-      console.log(response)
-    }catch(err){
-        console.log(err);
-      }
+      const wrongAnswersForAnalysis = wrongAnswers.map(wrong => ({
+        question: wrong.question,
+        user_answer: wrong.userAnswer,
+        correct_answer: wrong.correctAnswer
+      }));
+
+      const response = await axios.post('https://genmodel.onrender.com/analyze', wrongAnswersForAnalysis);
+      setAnalysis(response.data);
+      setShowAnalysis(true);
+    } catch (error) {
+      console.error('Error getting analysis:', error);
+      alert('Failed to get detailed analysis. Please try again.');
+    }
+    setIsLoadingAnalysis(false);
   };
 
   const calculateScore = () => {
@@ -174,6 +205,8 @@ export default function MCQGenerator() {
     setGeneratedMCQs([]);
     setUserAnswers({});
     setShowResults(false);
+    setAnalysis([]);
+    setShowAnalysis(false);
     handleGenerate();
   };
 
@@ -219,47 +252,48 @@ export default function MCQGenerator() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50">
-     <Navbar/>
+      <Navbar />
 
-      <main className="container mx-auto px-4 pt-24 pb-12">
+      <main className="container mx-auto px-4 pt-28 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="max-w-4xl mx-auto"
         >
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-10">
             <div>
-              <h1 className="text-3xl font-bold mb-2">AI MCQ Generator</h1>
-              <p className="text-gray-600">
+              <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                AI MCQ Generator
+              </h1>
+              <p className="text-gray-600 text-lg">
                 Transform any text into multiple-choice questions
               </p>
             </div>
-            <div className="bg-purple-100 p-3 rounded-full">
-              <Brain className="h-8 w-8 text-purple-600" />
+            <div className="bg-gradient-to-r from-purple-600/10 to-blue-600/10 p-4 rounded-2xl">
+              <Brain className="h-10 w-10 text-purple-600" />
             </div>
           </div>
 
           <div className="grid gap-8">
             {/* Input Section */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="bg-white rounded-2xl shadow-lg shadow-purple-100/50 p-8">
               <div className="space-y-6">
                 <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Content Description
-                </label>
-                <textarea
-                  placeholder="Enter the text content or topic description..."
-                  className="w-full h-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white hidden-scrollbar"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-
+                  <label className="block text-lg font-medium text-gray-700 mb-3">
+                    Content Description
+                  </label>
+                  <textarea
+                    placeholder="Enter the text content or topic description..."
+                    className="w-full h-40 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white hidden-scrollbar text-base"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-lg font-medium text-gray-700 mb-3">
                       Number of Questions
                     </label>
                     <input
@@ -268,7 +302,7 @@ export default function MCQGenerator() {
                       max="20"
                       value={numQuestions}
                       onChange={(e) => setNumQuestions(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-base"
                     />
                   </div>
                 </div>
@@ -276,12 +310,12 @@ export default function MCQGenerator() {
                 <button
                   onClick={handleGenerate}
                   disabled={!description || isGenerating}
-                  className="w-full py-2 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium flex items-center justify-center disabled:opacity-50"
+                  className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-medium flex items-center justify-center disabled:opacity-50 hover:from-purple-700 hover:to-blue-700 transition-colors text-lg"
                 >
                   {isGenerating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                   ) : (
-                    <Brain className="h-4 w-4 mr-2" />
+                    <Brain className="h-5 w-5 mr-2" />
                   )}
                   Generate MCQs
                 </button>
@@ -295,31 +329,31 @@ export default function MCQGenerator() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold">Generated Questions</h2>
-                    <div className="flex space-x-2">
+                <div className="bg-white rounded-2xl shadow-lg shadow-purple-100/50 p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-semibold">Generated Questions</h2>
+                    <div className="flex space-x-3">
                       <button
                         onClick={handleRegenerate}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium flex items-center hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-200 rounded-xl text-base font-medium flex items-center hover:bg-gray-50 transition-colors"
                       >
-                        <RefreshCw className="h-4 w-4 mr-2" />
+                        <RefreshCw className="h-5 w-5 mr-2" />
                         Regenerate
                       </button>
                       <button
                         onClick={handleExport}
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium flex items-center hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-200 rounded-xl text-base font-medium flex items-center hover:bg-gray-50 transition-colors"
                       >
-                        <Download className="h-4 w-4 mr-2" />
+                        <Download className="h-5 w-5 mr-2" />
                         Export
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex space-x-2 mb-6">
+                  <div className="flex space-x-3 mb-8">
                     <button
                       onClick={() => setActiveTab('preview')}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      className={`px-6 py-3 rounded-xl text-base font-medium transition-colors ${
                         activeTab === 'preview'
                           ? 'bg-purple-100 text-purple-600'
                           : 'text-gray-600 hover:bg-gray-100'
@@ -329,7 +363,7 @@ export default function MCQGenerator() {
                     </button>
                     <button
                       onClick={() => setActiveTab('edit')}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      className={`px-6 py-3 rounded-xl text-base font-medium transition-colors ${
                         activeTab === 'edit'
                           ? 'bg-purple-100 text-purple-600'
                           : 'text-gray-600 hover:bg-gray-100'
@@ -340,32 +374,33 @@ export default function MCQGenerator() {
                   </div>
 
                   {activeTab === 'preview' ? (
-                    <div className="space-y-8">
+                    <div className="space-y-10">
                       {generatedMCQs.map((mcq, index) => (
-                        <div key={index} className="space-y-4">
+                        <div key={index} className="space-y-6">
                           <div className="flex items-start space-x-4">
-                            <span className="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-sm font-medium">
+                            <span className="bg-gradient-to-r from-purple-600/10 to-blue-600/10 text-purple-600 px-4 py-2 rounded-xl text-base font-medium">
                               Q{index + 1}
                             </span>
                             <div className="flex-1">
-                              <p className="font-medium mb-4">{mcq.question}</p>
-                              <div className="space-y-3">
+                              <p className="text-lg font-medium mb-6">{mcq.question}</p>
+                              <div className="space-y-4">
                                 {mcq.options.map((option, optIndex) => (
                                   <div
                                     key={optIndex}
                                     onClick={() => handleAnswerSelect(index, optIndex)}
                                     className={`
-                                      flex items-center space-x-3 p-3 rounded-lg cursor-pointer
-                                      transition-colors duration-200
+                                      flex items-center space-x-4 p-4 rounded-xl cursor-pointer
+                                      transition-all duration-200
                                       ${
                                         userAnswers[index] === optIndex
                                           ? 'bg-purple-50 border-2 border-purple-500'
                                           : 'hover:bg-gray-50 border-2 border-transparent'
                                       }
+                                      ${showResults ? 'cursor-default' : 'cursor-pointer'}
                                     `}
                                   >
                                     <div className={`
-                                      w-6 h-6 rounded-full flex items-center justify-center
+                                      w-7 h-7 rounded-full flex items-center justify-center
                                       border-2 transition-colors duration-200
                                       ${
                                         userAnswers[index] === optIndex
@@ -377,27 +412,25 @@ export default function MCQGenerator() {
                                         <Check className="h-4 w-4 text-white" />
                                       )}
                                     </div>
-                                    <span className={`
-                                      ${
-                                        showResults
-                                          ? optIndex === mcq.correctAnswer
-                                            ? 'text-green-600 font-medium'
-                                            : userAnswers[index] === optIndex
-                                            ? 'text-red-600'
-                                            : 'text-gray-600'
+                                    <span className={`text-base ${
+                                      showResults
+                                        ? optIndex === mcq.correctAnswer
+                                          ? 'text-green-600 font-medium'
                                           : userAnswers[index] === optIndex
-                                          ? 'text-purple-700 font-medium'
+                                          ? 'text-red-600'
                                           : 'text-gray-600'
-                                      }
-                                    `}>
+                                        : userAnswers[index] === optIndex
+                                        ? 'text-purple-700 font-medium'
+                                        : 'text-gray-600'
+                                    }`}>
                                       {option}
                                       {showResults && optIndex === mcq.correctAnswer && (
-                                        <CheckCircle2 className="inline-block ml-2 h-4 w-4 text-green-600" />
+                                        <CheckCircle2 className="inline-block ml-2 h-5 w-5 text-green-600" />
                                       )}
                                       {showResults &&
                                         userAnswers[index] === optIndex &&
                                         optIndex !== mcq.correctAnswer && (
-                                          <XCircle className="inline-block ml-2 h-4 w-4 text-red-600" />
+                                          <XCircle className="inline-block ml-2 h-5 w-5 text-red-600" />
                                         )}
                                     </span>
                                   </div>
@@ -408,42 +441,126 @@ export default function MCQGenerator() {
                         </div>
                       ))}
 
-                      <div className="pt-6 border-t">
+                      <div className="pt-8 border-t">
                         <button
                           onClick={handleSubmit}
-                          disabled={Object.keys(userAnswers).length !== generatedMCQs.length}
-                          className="w-full py-2 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium disabled:opacity-50"
+                          disabled={Object.keys(userAnswers).length !== generatedMCQs.length || showResults}
+                          className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-medium disabled:opacity-50 hover:from-purple-700 hover:to-blue-700 transition-colors text-lg"
                         >
-                          Submit Answers
+                          {showResults ? 'Answers Submitted' : 'Submit Answers'}
                         </button>
 
                         {showResults && (
                           <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="mt-4 p-4 bg-purple-50 rounded-lg"
+                            className="mt-6 p-6 bg-gradient-to-r from-purple-600/10 to-blue-600/10 rounded-xl"
                           >
-                            <p className="text-center text-lg font-medium">
+                            <p className="text-center text-xl font-medium">
                               Your Score: {calculateScore()} out of {generatedMCQs.length} ({Math.round((calculateScore() / generatedMCQs.length) * 100)}%)
                             </p>
                           </motion.div>
-                          
+                        )}
+
+                        {/* Detailed Analysis Section */}
+                        {showResults && wrongAnswers.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-8 space-y-6"
+                          >
+                            <div className="border-t pt-8">
+                              <h3 className="text-2xl font-semibold mb-6 flex items-center">
+                                <AlertCircle className="h-6 w-6 mr-2 text-purple-600" />
+                                Review Incorrect Answers
+                              </h3>
+                              <div className="space-y-6">
+                                {wrongAnswers.map((wrong, index) => (
+                                  <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                    <p className="text-lg font-medium mb-4">{wrong.question}</p>
+                                    <div className="space-y-3">
+                                      <div className="flex items-start space-x-3 text-red-600">
+                                        <XCircle className="h-5 w-5 mt-0.5" />
+                                        <div>
+                                          <p className="font-medium">Your Answer:</p>
+                                          <p>{wrong.userAnswer}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start space-x-3 text-green-600">
+                                        <CheckCircle2 className="h-5 w-5 mt-0.5" />
+                                        <div>
+                                          <p className="font-medium">Correct Answer:</p>
+                                          <p>{wrong.correctAnswer}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Detailed Feedback Section */}
+                            {showAnalysis && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="border-t pt-8"
+                              >
+                                <h3 className="text-2xl font-semibold mb-6 flex items-center">
+                                  <BookOpen className="h-6 w-6 mr-2 text-purple-600" />
+                                  Detailed Analysis
+                                </h3>
+                                <div className="space-y-6">
+                                  {analysis.map((item, index) => (
+                                    <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                      <h4 className="text-lg font-semibold mb-4">{item.question}</h4>
+                                      <div className="prose prose-purple max-w-none">
+                                        <ReactMarkdown>{item.analysis}</ReactMarkdown>
+                                      </div>
+                                      {item.youtube_video_url && (
+                                        <div className="mt-4">
+                                          <a
+                                            href={item.youtube_video_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:text-white transition-colors"
+                                          >
+                                            <Youtube className="h-5 w-5 mr-2" />
+                                            Watch Related Video
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {isLoadingAnalysis && (
+                              <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                                <span className="ml-3 text-lg text-gray-600">
+                                  Generating detailed analysis...
+                                </span>
+                              </div>
+                            )}
+                          </motion.div>
                         )}
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-8">
                       {generatedMCQs.map((mcq, index) => (
-                        <div key={index} className="space-y-4 bg-gray-50 p-6 rounded-lg">
+                        <div key={index} className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-100">
                           <div className="flex items-start justify-between">
-                            <span className="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-sm font-medium">
+                            <span className="bg-gradient-to-r from-purple-600/10 to-blue-600/10 text-purple-600 px-4 py-2 rounded-xl text-base font-medium">
                               Q{index + 1}
                             </span>
                             <button
                               onClick={() => startEditing(index)}
-                              className="text-gray-500 hover:text-purple-600"
+                              className="text-gray-400 hover:text-purple-600 transition-colors"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-5 w-5" />
                             </button>
                           </div>
                           {editingIndex === index ? (
@@ -451,25 +568,25 @@ export default function MCQGenerator() {
                               <textarea
                                 value={editForm?.question}
                                 onChange={(e) => handleEditChange('question', e.target.value)}
-                                className="w-full p-2 border rounded-lg bg-white"
+                                className="w-full p-4 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 placeholder="Enter question"
                               />
                               {editForm?.options.map((option, optIndex) => (
-                                <div key={optIndex} className="flex space-x-2">
+                                <div key={optIndex} className="flex space-x-3">
                                   <input
                                     type="text"
                                     value={option}
                                     onChange={(e) =>
                                       handleEditChange('options', e.target.value, optIndex)
                                     }
-                                    className="flex-1 p-2 border rounded-lg bg-white"
+                                    className="flex-1 p-4 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                     placeholder={`Option ${optIndex + 1}`}
                                   />
                                   <div
                                     onClick={() => handleEditChange('correctAnswer', optIndex.toString())}
                                     className={`
-                                      w-6 h-6 rounded-full flex items-center justify-center cursor-pointer
-                                      border-2 transition-colors duration-200 mt-2
+                                      w-7 h-7 rounded-full flex items-center justify-center cursor-pointer
+                                      border-2 transition-colors duration-200 mt-4
                                       ${
                                         editForm.correctAnswer === optIndex
                                           ? 'border-purple-500 bg-purple-500'
@@ -483,19 +600,19 @@ export default function MCQGenerator() {
                                   </div>
                                 </div>
                               ))}
-                              <div className="flex justify-end space-x-2">
+                              <div className="flex justify-end space-x-3">
                                 <button
                                   onClick={() => {
                                     setEditingIndex(null);
                                     setEditForm(null);
                                   }}
-                                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                                  className="px-4 py-2 border border-gray-200 rounded-xl text-base"
                                 >
                                   Cancel
                                 </button>
                                 <button
                                   onClick={saveEdit}
-                                  className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm"
+                                  className="px-4 py-2 bg-purple-600 text-white rounded-xl text-base hover:bg-purple-700 transition-colors"
                                 >
                                   Save
                                 </button>
@@ -503,14 +620,14 @@ export default function MCQGenerator() {
                             </div>
                           ) : (
                             <>
-                              <p className="font-medium">{mcq.question}</p>
-                              <div className="space-y-2">
+                              <p className="text-lg font-medium">{mcq.question}</p>
+                              <div className="space-y-3">
                                 {mcq.options.map((option, optIndex) => (
-                                  <div key={optIndex} className="flex items-center space-x-2">
-                                    <span className="w-6 h-6 flex items-center justify-center border rounded-full text-sm">
+                                  <div key={optIndex} className="flex items-center space-x-3">
+                                    <span className="w-7 h-7 flex items-center justify-center border-2 border-gray-300 rounded-full text-base">
                                       {optIndex === mcq.correctAnswer ? '✓' : String.fromCharCode(65 + optIndex)}
                                     </span>
-                                    <span>{option}</span>
+                                    <span className="text-base">{option}</span>
                                   </div>
                                 ))}
                               </div>
@@ -535,6 +652,9 @@ export default function MCQGenerator() {
             score={calculateScore()}
             total={generatedMCQs.length}
             wrongAnswers={wrongAnswers}
+            onFeedback={handleFeedback}
+            analysis={analysis}
+            showAnalysis={showAnalysis}
           />
         )}
       </AnimatePresence>
