@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Brain, 
   Users, 
@@ -12,7 +13,8 @@ import {
   Zap,
 } from 'lucide-react';
 import LandingNav from '@/components/layout/LandingNav';
-
+import { useGoogleLogin } from '@react-oauth/google';
+import axios from 'axios';
 const features = [
   {
     icon: Brain,
@@ -74,12 +76,59 @@ const testimonials = [
     quote: 'The collaborative features make it easy to support students and track their progress effectively.'
   }
 ];
-
+interface Classroom {
+  id: string;
+  name: string;
+  section?: string;
+}
 export default function LandingPage() {
+  const [user, setUser] = useState<any>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate(); // Initialize React Router navigation
+
+  const login = useGoogleLogin({
+    onSuccess: (codeResponse) => {
+      const token = codeResponse.access_token;
+      setUser(codeResponse);
+      setAccessToken(token);
+      localStorage.setItem('accessToken', token);
+      fetchClassrooms(token);
+
+      // Redirect to dashboard after successful login
+      navigate('/dashboard');
+    },
+    onError: (error) => {
+      console.error('Login Failed:', error);
+      setError('Failed to login with Google');
+    },
+    scope: 'https://www.googleapis.com/auth/classroom.courses.readonly',
+  });
+
+  const fetchClassrooms = async (token: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('https://classroom.googleapis.com/v1/courses', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setClassrooms(response.data.courses || []);
+    } catch (error) {
+      console.error('Error fetching classrooms:', error);
+      setError('Failed to fetch classrooms.');
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50">
        <LandingNav/>
-      {/* Hero Section */}  
+      {/* Hero Section */}
       <motion.section 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -95,12 +144,12 @@ export default function LandingPage() {
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Transform your academic journey with AI-powered feedback and personalized learning experiences.
           </p>
-          <Link to="/signup">
-            <Button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white text-lg px-8 py-6 rounded-full">
+          
+            <Button onClick={() => login()} className="bg-gradient-to-r from-purple-600 to-blue-600 text-white text-lg px-8 py-6 rounded-full">
               Get Started Free
               <ArrowRight className="ml-2" />
             </Button>
-          </Link>
+          
         </div>
       </motion.section>
 
@@ -202,12 +251,12 @@ export default function LandingPage() {
             <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
               Join thousands of students and educators who are already benefiting from AI-powered feedback.
             </p>
-            <Link to="/signup">
-              <Button className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6 rounded-full">
+           
+              <Button onClick={() => login()} className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6 rounded-full">
                 Start Your Free Trial
                 <ArrowRight className="ml-2" />
               </Button>
-            </Link>
+            
           </motion.div>
         </div>
       </section>
