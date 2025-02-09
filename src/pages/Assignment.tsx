@@ -5,11 +5,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload } from "lucide-react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
 
 export default function Assignment() {
   const [file, setFile] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [topic, setTopic] = useState<string>("");
+
+  const navigate = useNavigate(); // Initialize navigate
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -29,7 +33,7 @@ export default function Assignment() {
 
     try {
       console.log("Uploading:", file.name); // Debugging
-      const response = await fetch("https://4e34-106-195-14-239.ngrok-free.app/upload", {
+      const response = await fetch("https://picthackathon.onrender.com/upload", {
         method: "POST",
         body: formData,
       });
@@ -47,6 +51,16 @@ export default function Assignment() {
       setLoading(false);
     }
   };
+
+    const handleSubmit = () => {
+      if (!topic || !extractedText) {
+        alert("Please provide a title and ensure extracted content is available.");
+        return;
+      }
+    
+      // Navigate to /feedback with topic and extracted text as state
+      navigate("/feedback", { state: { topic, content: extractedText } });
+    };    
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center">
@@ -89,9 +103,9 @@ export default function Assignment() {
 
               {/* Centered Upload Button */}
               <div className="flex justify-center mt-6">
-                <Button 
-                  onClick={handleUpload} 
-                  disabled={loading} 
+                <Button
+                  onClick={handleUpload}
+                  disabled={loading}
                   className="bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
                 >
                   {loading ? "Processing..." : "Submit"}
@@ -112,6 +126,22 @@ export default function Assignment() {
                 <h2 className="text-xl font-semibold mb-4 text-purple-600">Extracted Text</h2>
                 <Textarea value={extractedText} readOnly className="w-full h-40" />
               </Card>
+              <div className="mt-6">
+                <input
+                  type="text"
+                  placeholder="Enter title"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  className="w-full p-2 border rounded-md"
+                />
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!topic || !extractedText}
+                  className="mt-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+                >
+                  Submit Title and Content
+                </Button>
+              </div>
             </motion.div>
           )}
         </main>
