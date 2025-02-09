@@ -134,8 +134,9 @@ export default function Dashboard() {
     });
   };
 
-  const handleCourseClick = (courseId: string) => {
-    navigate(`/classroom/${courseId}`);
+  const handleCourseClick = (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent the link's default behavior
+    navigate(`/classroom/${courseId}`); // Navigate to the submissions route
   };
 
   if (loading) {
@@ -255,7 +256,7 @@ export default function Dashboard() {
               >
                 <Card 
                   className="relative h-full p-6 cursor-pointer transform transition-all duration-200 hover:shadow-xl hover:scale-102 border-2 border-transparent hover:border-blue-500"
-                  onClick={() => handleCourseClick(course.id)}
+                  onClick={(e) => handleCourseClick(course.id, e)}
                 >
                   <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                     <a

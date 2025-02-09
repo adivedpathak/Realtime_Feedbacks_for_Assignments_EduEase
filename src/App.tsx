@@ -12,6 +12,7 @@ import JoinClassroom from '@/pages/JoinClassroom';
 import MCQGenerator from '@/pages/MCQGenerator';
 import CreateClassroom from './pages/CreateClassroom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import Feedback from './pages/Feedback';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ function App() {
             <Route path="/join-classroom" element={<JoinClassroom />} />
             <Route path="/mcq-generator" element={<MCQGenerator />} />
             <Route path="/create-classroom" element={<CreateClassroom />} />
+            <Route path="/feedback" element={<Feedback />} />
           </Routes>
         </Router>
         <Toaster />
