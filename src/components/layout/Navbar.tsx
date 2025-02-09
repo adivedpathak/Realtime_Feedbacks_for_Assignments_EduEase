@@ -40,6 +40,12 @@ export function Navbar() {
               Dashboard
             </Link>
             <Link
+              to="/assignment/:id"
+              className="text-purple-700 hover:text-purple-900"
+            >
+              Submit Assignment
+            </Link>
+            <Link
               to="/mcq-generator"
               className="text-purple-700 hover:text-purple-900"
             >

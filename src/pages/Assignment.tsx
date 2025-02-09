@@ -29,7 +29,7 @@ export default function Assignment() {
 
     try {
       console.log("Uploading:", file.name); // Debugging
-      const response = await fetch("https://picthackathon.onrender.com/upload", {
+      const response = await fetch("https://4e34-106-195-14-239.ngrok-free.app/upload", {
         method: "POST",
         body: formData,
       });

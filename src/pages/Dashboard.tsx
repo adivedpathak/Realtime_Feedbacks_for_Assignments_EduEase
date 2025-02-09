@@ -141,12 +141,12 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600">Loading your courses...</p>
-        </div>
-      </div>
+      <div className="flex justify-center items-center h-[calc(100vh-200px)]">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-xl text-gray-600">Loading...</p>
+            </div>
+          </div>
     );
   }
 
