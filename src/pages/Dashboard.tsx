@@ -55,7 +55,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('', {
+        const response = await fetch('https://classroom.googleapis.com/v1/courses', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Accept': 'application/json',
