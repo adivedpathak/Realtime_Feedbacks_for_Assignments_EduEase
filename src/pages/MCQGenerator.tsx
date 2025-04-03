@@ -361,7 +361,7 @@ export default function MCQGenerator() {
                     >
                       Preview
                     </button>
-                    <button
+                    {/* <button
                       onClick={() => setActiveTab('edit')}
                       className={`px-6 py-3 rounded-xl text-base font-medium transition-colors ${
                         activeTab === 'edit'
@@ -370,7 +370,7 @@ export default function MCQGenerator() {
                       }`}
                     >
                       Edit
-                    </button>
+                    </button> */}
                   </div>
 
                   {activeTab === 'preview' ? (
